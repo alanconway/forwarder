@@ -1,0 +1,181 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: forwarders.logging.openshift.io
+spec:
+  group: logging.openshift.io
+  names:
+    kind: Forwarder
+    listKind: ForwarderList
+    plural: forwarders
+    singular: forwarder
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      description: Forwarder is the schema for log forwarder API.
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: ForwarderSpec defines the desired state of Forwarder
+          properties:
+            outputs:
+              description: Outputs are named output destinations for log messages.
+              items:
+                description: Output defines a destination for log messages. Most fields
+                  are optional, the simplest working configurations need only name,
+                  type and url.
+                properties:
+                  authSecretRef:
+                    description: "AuthSecret is the name of a secret with keys `username`
+                      and/or `password` for outputs that have password or shared-key
+                      authentication. The secret is in the same namespace as this
+                      forwarder. \n If present, the secret username and password are
+                      used in preference to the 'username:password' from the `url`.
+                      Outputs with shared-key authentication use just the `password`
+                      key and ignore `username`."
+                    type: string
+                  insecure:
+                    description: "Insecure must be explicitly set to 'true' if no
+                      encryption is configured. \n Encryption can be configured via
+                      the `url` for server-only authentication (e.g. 'https://...',
+                      'syslog+tls://...') and/or the `tlsSecret` field for client
+                      authentication."
+                    type: boolean
+                  masterNamespace:
+                    description: MasterNamespace should not normally be set, use the
+                      default. The 'forwarder' object in this namespace is the master
+                      forwarder.
+                    type: string
+                  name:
+                    description: Name used to refer to the output from a pipeline.
+                    type: string
+                  plugin:
+                    description: "Plugin provides configuration specific to the output
+                      plugin `type`. You should not need to use this in most cases.
+                      \n XXX(alanconway) document and validate type-specifics, //
+                      +docLink to documentation. Should this be an explicit union?"
+                    format: byte
+                    type: string
+                  reconnect:
+                    description: Reconnect defines how to reconnect if a connection
+                      closes.
+                    type: object
+                  resend:
+                    description: Resend if true un-acknowledged data will be re-sent
+                      after reconnect, so data may be duplicated. If false (the default)
+                      there is no re-send so data may be lost.
+                    type: boolean
+                  timeoutSeconds:
+                    description: TimeoutMilliseconds is the max time to wait for a
+                      connection to be established, or for any other "waiting" that
+                      is done by the plugin; for example waiting for an acknowledgement.
+                      0 or unspecified means use the default timeout determined by
+                      the plugin.
+                    format: int64
+                    type: integer
+                  tlsSecretRef:
+                    description: TLSSecret is the name of a secret with keys `tls.crt`,
+                      `tls.key` and `ca.crt`. If present it enables TLS client authentication.
+                      It is an error to specify this field if the output does not
+                      support TLS. The secret is in the same namespace as this forwarder.
+                    type: string
+                  type:
+                    description: "Type of output plugin needed to communicate with
+                      the desired target. \n XXX(alanconway) how to document the list
+                      of available types."
+                    type: string
+                  url:
+                    description: URL to connect to the destination, valid schemes
+                      depend on the type.  `url` may include 'username:password',
+                      but the password is visible to anyone who can view the spec.  For
+                      more detail see `authSecret`.
+                    type: string
+                required:
+                - name
+                - type
+                - url
+                type: object
+              type: array
+            pipelines:
+              description: Pipelines select log messages to send to outputs.
+              items:
+                description: Pipeline selects log messages and directs them to outputs.
+                properties:
+                  balance:
+                    description: 'Balance determines how to select among multiple
+                      outputs: choices are ''Random'', ''RoundRobin'' or ''All''
+                      to send to all outputs concurrently.'
+                    enum:
+                    - Random
+                    - RoundRobin
+                    - All
+                    type: string
+                  name:
+                    description: Name of the pipeline, for patch updates.
+                    type: string
+                  outputrefs:
+                    description: "OutputRefs lists the names of outputs for selected
+                      log messages. \n XXX(alanconway) is it correct to use Output_Refs_
+                      convention here, since these are not k8s object references?
+                      Should we use OutputNames or Outputs?"
+                    items:
+                      type: string
+                    type: array
+                  selector:
+                    description: Selector restricts the containers used as log sources.
+                    properties:
+                      expression:
+                        description: Expressions is a list of label selector expressions.
+                        items:
+                          type: string
+                        type: array
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels is an equality-based label selector.
+                        type: object
+                      namespaces:
+                        description: "Namespaces restricts forwarding to the listed
+                          namespaces. \n Only allowed for the master forwarder, namespace
+                          forwarders forward only from the namespace they are deployed
+                          in."
+                        items:
+                          type: string
+                        type: array
+                      source:
+                        description: Source restricts forwarding to message by type
+                          of log source. If omitted or empty, forward all source types.
+                        items:
+                          description: SourceType of log message.
+                          enum:
+                          - Application
+                          - Infrastructure
+                          - Audit
+                          type: string
+                        type: array
+                    type: object
+                required:
+                - outputrefs
+                type: object
+              type: array
+          type: object
+        status:
+          description: Inputs defines the observed state of Forwarder
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
